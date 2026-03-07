@@ -61,3 +61,20 @@ Este sistema es una solución robusta de línea de comandos (CLI) diseñada para
 1. **Clonar el repositorio:**
    ```bash
    git clone [https://github.com/tu-usuario/nombre-del-repo.git](https://github.com/tu-usuario/nombre-del-repo.git)
+   ```
+2. **Compilar el proyecto:**
+   ```bash
+   javac -d bin src/com/cursos/biblioinventory/**/*.java
+   ```
+3. **Ejecutar la aplicación:**
+   ```bash
+   java -cp bin com.cursos.biblioinventory.Main
+   ```
+## 🧠 Retos Técnicos y Aprendizajes
+<blockquote>
+<b>El desafío del Parsing JSON:</b> Uno de los mayores retos fue reconstruir objetos complejos (especialmente las listas anidadas de libros dentro de los usuarios) sin usar herramientas como Jackson o Gson. Se implementó un motor de búsqueda de patrones basado en <b>Expresiones Regulares (Regex)</b> para separar los campos del archivo de texto y mapearlos correctamente a los atributos de las clases.
+</blockquote>
+<hr>
+<p align="center">
+Desarrollado con ❤️ como parte de un proceso de aprendizaje continuo en Java.
+</p>
