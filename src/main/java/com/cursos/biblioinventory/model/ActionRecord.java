@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package com.cursos.biblioinventory.controller;
+package com.cursos.biblioinventory.model;
 
 /**
  *
@@ -12,11 +12,11 @@ public class ActionRecord {
     public enum ActionType{ADD, REMOVE, LOAN, RETURN}
     
     private final ActionType type;
-    private final String itemId;
-    private final String userId;
+    private final Integer itemId;
+    private final Integer userId;
     private final long timestamp;
     
-    public ActionRecord(ActionType type, String itemId, String userId){
+    public ActionRecord(ActionType type, Integer itemId, Integer userId){
         this.type = type;
         this.itemId = itemId;
         this.userId = userId;
@@ -27,17 +27,17 @@ public class ActionRecord {
         return type;
     }
 
-    public String getItemId() {
+    public Integer getItemId() {
         return itemId;
     }
 
-    public String getUserId() {
+    public Integer getUserId() {
         return userId;
     }
     
     @Override
     public String toString(){
-        if(userId.equalsIgnoreCase("")){
+        if(userId == null){
             return String.format("[%tT] Acción: %s | Item ID: %s", timestamp, type, itemId);
         }
         return String.format("[%tT] Acción: %s | Item ID: %s | User ID: %s", timestamp, type, itemId, userId);

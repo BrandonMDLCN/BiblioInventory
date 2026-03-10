@@ -11,16 +11,32 @@ import java.time.LocalDate;
  * @author brandon.delacruz
  */
 public abstract class LibraryItem {
-    private String id;
+    private Integer id;
     private String titulo;
     private LocalDate ano;
     private boolean isAvailable;
-
-    protected LibraryItem(String id, String titulo, LocalDate ano) {
+    
+    protected LibraryItem(String titulo, LocalDate ano) {
+        this.titulo = titulo;
+        this.ano = ano;
+        this.isAvailable = true;
+    }
+    
+    protected LibraryItem(Integer id, String titulo, LocalDate ano) {
         this.id = id;
         this.titulo = titulo;
         this.ano = ano;
         this.isAvailable = true;
+    }
+    
+    /*
+    *Constructor para ingresar datos de la BD al sistema
+    */
+    protected LibraryItem(Integer id, String titulo, LocalDate ano, boolean isAvailable) {
+        this.id = id;
+        this.titulo = titulo;
+        this.ano = ano;
+        this.isAvailable = isAvailable;
     }
     
     public abstract void displayDetails();
@@ -30,20 +46,6 @@ public abstract class LibraryItem {
     public abstract void returnItem();
     
     public abstract String toJSON();
-
-    /**
-     * @return the id
-     */
-    public String getId() {
-        return id;
-    }
-
-    /**
-     * @param id the id to set
-     */
-    public void setId(String id) {
-        this.id = id;
-    }
 
     /**
      * @return the titulo
@@ -86,4 +88,14 @@ public abstract class LibraryItem {
     public void setIsAvailable(boolean isAvailable) {
         this.isAvailable = isAvailable;
     }    
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+    
+    
 }

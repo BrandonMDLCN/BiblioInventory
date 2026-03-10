@@ -1,10 +1,10 @@
 package com.cursos.biblioinventory;
 
-import com.cursos.biblioinventory.controller.ActionRecord;
+import com.cursos.biblioinventory.model.ActionRecord;
 import com.cursos.biblioinventory.controller.LibraryManager;
 import com.cursos.biblioinventory.model.Book;
 import com.cursos.biblioinventory.model.User;
-import java.io.IOException;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -19,17 +19,9 @@ public class BiblioInventory {
     private static final String SELECCIONAR_OPCION = "Seleccionar una opción:";
     private static final String REGRESAR_A_MENU = "\nRegresando a menu principal";
     
-    public static void main(String[] args) {        
+    public static void main(String[] args) throws SQLException {        
         LibraryManager manager = new LibraryManager();
-        
-        try {
-            manager.uploadFileToBooks();
-            manager.uploadFileToUsers();
-        } catch (IOException ex) {
-            System.getLogger(BiblioInventory.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-        }
         System.out.println("\nBienvenido Administrador de Biblioteca");
-        
             
         int opcion = 1;
         do {
@@ -63,6 +55,7 @@ public class BiblioInventory {
         System.out.println("1.- Añadir Libro");
         System.out.println("2.- Listar todos los libros");
         System.out.println("3.- Mostrar libros de un Usuario");
+        System.out.println("4.- Buscar libro por ID");
         System.out.println("0.- Regresar");
         
         Scanner scanner = new Scanner(System.in);
@@ -81,7 +74,15 @@ public class BiblioInventory {
                 System.out.println("\nMostrando Todos los Libros de un Usuario");
                 System.out.println("Ingresa Id de Usuario a mostrar:");
                 String idUser = scanner.nextLine();
-                manager.showUsersBooks(idUser);
+                int idUserInt = Integer.parseInt(idUser);
+                manager.showUsersBooks(idUserInt);
+            }
+            case 4 -> {
+                System.out.println("\nBuscador de libro por ID");
+                System.out.println("Ingresa Id de Libro a mostrar:");
+                String idLibro = scanner.nextLine();
+                int idLibroInt = Integer.parseInt(idLibro);
+                manager.findItem(idLibroInt);
             }
             case 0 -> System.out.println(REGRESAR_A_MENU);
             default -> System.out.println(OPCION_INCORRECTO);
@@ -93,8 +94,9 @@ public class BiblioInventory {
         System.out.println(SELECCIONAR_OPCION);
         System.out.println("1.- Registrar Usuario");
         System.out.println("2.- Mostrar todos los Usuarios");
-        System.out.println("3.- Procesar un Prestamo");
-        System.out.println("4.- Regresar un Libro");
+        System.out.println("3.- Mostrar Usuario por ID");
+        System.out.println("4.- Procesar un Prestamo");
+        System.out.println("5.- Regresar un Libro");
         
         Scanner scanner = new Scanner(System.in);
         String eleccion = scanner.nextLine();
@@ -105,29 +107,42 @@ public class BiblioInventory {
         switch (opcion) {
             case 1 -> anadirUsuario(scanner, manager);
             case 2 -> {
-                System.out.println("\nMostrando Todos los Libros");
+                System.out.println("\nMostrando Todos los Usuarios");
                 manager.listAllUsers();
             }
             case 3 -> {
+                System.out.println("\nMostrando Usuario por ID");
+                System.out.println("Ingresa Id de Usuario a buscar:");
+                String idUserr = scanner.nextLine();
+                int idUser = Integer.parseInt(idUserr);
+                manager.findUser(idUser);
+            }
+            case 4 -> {
                 System.out.println("\nProcesando un Prestamo");
                 System.out.println("Ingresa Id de Usuario a prestar:");
                 String idUserr = scanner.nextLine();
                 System.out.println("Ingresa Id de Libro a prestar:");
-                String idLibro = scanner.nextLine();
-                if(manager.processLoan(idUserr, idLibro)){
-                    manager.addActionRecord(ActionRecord.ActionType.LOAN, idLibro, idUserr);
-                    manager.guardarAJSONItemUsuario(manager);
-                }                                
+                String idLibroo = scanner.nextLine();
+                int idUser = Integer.parseInt(idUserr);
+                int idLibro = Integer.parseInt(idLibroo);
+                try {
+                    if(manager.processLoan(idUser, idLibro)){
+                        manager.addActionRecord(ActionRecord.ActionType.LOAN, idLibro, idUser);
+                    }                                
+                } catch (SQLException ex) {
+                    System.getLogger(BiblioInventory.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                }
             }
-            case 4 -> {
+            case 5 -> {
                 System.out.println("\nRegresando Libro");
                 System.out.println("Ingresa Id de Usuario a regresar:");
-                String idUser = scanner.nextLine();
+                String idUserr = scanner.nextLine();
                 System.out.println("Ingresa Id de Libro a regresar:");
-                String idLibro = scanner.nextLine();
-                if(manager.processDevolution(idUser, idLibro)){
+                String idLibroo = scanner.nextLine();
+                int idUser = Integer.parseInt(idUserr);
+                int idLibro = Integer.parseInt(idLibroo);
+                if(manager.processDevolution(idLibro, idUser)){
                     manager.addActionRecord(ActionRecord.ActionType.RETURN, idLibro, idUser);
-                    manager.guardarAJSONItemUsuario(manager);
                 }                                
             }
             case 0 -> System.out.println(REGRESAR_A_MENU);
@@ -135,7 +150,7 @@ public class BiblioInventory {
         }
     }
     
-    public static void opcionHistorial(LibraryManager manager){
+    public static void opcionHistorial(LibraryManager manager) throws SQLException{
         System.out.println("\n----------Sección Historial----------");
         System.out.println(SELECCIONAR_OPCION);
         System.out.println("1.- Mostrar el historial de movimientos");
@@ -152,7 +167,6 @@ public class BiblioInventory {
             case 2 -> {
                 System.out.println("\n Deshaciendo ultimo movimiento");
                 manager.undoLastAction();
-                manager.guardarAJSONItemUsuario(manager);
             }
             case 0 -> System.out.println(REGRESAR_A_MENU);
             default -> System.out.println(OPCION_INCORRECTO);
@@ -162,7 +176,6 @@ public class BiblioInventory {
     public static void anadirLibros(Scanner scanner, LibraryManager manager){
         System.out.println("\nAñadiendo Libro");
         DateTimeFormatter formato = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        int nextID = manager.consecutivoItemId();
         System.out.println("Ingresa Nombre de Autor del Libro");
         String autorLibro = scanner.nextLine();
         System.out.println("Ingresa ISBN del Libro");
@@ -181,23 +194,21 @@ public class BiblioInventory {
                     System.out.println("Formato inválido, intente de nuevo.");
                 }
             }
-        manager.addItem(new Book(autorLibro, isbnParsed, "B"+nextID, nombreLibro, fechaFinal));
         try {
-            manager.saveBooksToFile();
-        } catch (IOException ex) {
+            manager.addBook(new Book(autorLibro, isbnParsed, nombreLibro, fechaFinal));
+        } catch (SQLException ex) {
             System.getLogger(BiblioInventory.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
     }
     
     public static  void anadirUsuario(Scanner scanner, LibraryManager manager){
         System.out.println("\nAñadiendo Usuario");
-        int nextID = manager.consecutivoUserId();
         System.out.println("Ingresa Nombre del Usuario");
         String nombreUsuario = scanner.nextLine();
-        manager.addUser(new User("U"+nextID, nombreUsuario));
+        
         try {
-            manager.saveUsersToFile();
-        } catch (IOException ex) {
+            manager.addUser(new User(nombreUsuario));
+        } catch (SQLException ex) {
             System.getLogger(BiblioInventory.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
     }

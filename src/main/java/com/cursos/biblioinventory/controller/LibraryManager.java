@@ -4,18 +4,17 @@
  */
 package com.cursos.biblioinventory.controller;
 
-import com.cursos.biblioinventory.exceptions.ItemNotFoundException;
-import com.cursos.biblioinventory.exceptions.UserNotFoundException;
+import com.cursos.biblioinventory.dao.BookDAO;
+import com.cursos.biblioinventory.dao.PrestamoDAO;
+import com.cursos.biblioinventory.dao.UserDAO;
+import com.cursos.biblioinventory.dao.impl.BookDAOImpl;
+import com.cursos.biblioinventory.dao.impl.PrestamoDAOImpl;
+import com.cursos.biblioinventory.dao.impl.UserDAOImpl;
+import com.cursos.biblioinventory.model.ActionRecord;
 import com.cursos.biblioinventory.model.Book;
 import com.cursos.biblioinventory.model.LibraryItem;
 import com.cursos.biblioinventory.model.User;
-import com.cursos.biblioinventory.utils.VerificarOCrearArchivo;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Reader;
-import java.time.LocalDate;
+import java.sql.SQLException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -29,19 +28,20 @@ import java.util.Map;
  */
 public class LibraryManager {
     private static final String USUARIO_NO_EXISTE = "Usuario no existe";
-    private static final String HOME = System.getProperty("user.home");
-    private static final String RUTA_ARCHIVO_BOOKS = HOME + File.separator + "books.json";
-    private static final String RUTA_ARCHIVO_USERS = HOME + File.separator + "users.json";
     
-    private final Map<String, LibraryItem> inventory;
-    private final Map<String, User> usuarios;
+    private final Map<Integer, LibraryItem> inventory;
+    private final BookDAO bookDao;
+    private final UserDAO userDao;
+    private final PrestamoDAO prestamoDao;
     private final Deque<ActionRecord> history;
     
     
-    public LibraryManager(){
+    public LibraryManager() throws SQLException{
         this.inventory = new HashMap<>();
-        this.usuarios = new HashMap<>();
         this.history = new ArrayDeque<>();
+        this.bookDao = new BookDAOImpl();
+        this.userDao = new UserDAOImpl();
+        this.prestamoDao = new PrestamoDAOImpl();
     }
     
     public void showHistoryRecords(){
@@ -54,7 +54,7 @@ public class LibraryManager {
         }
     }
     
-    public void undoLastAction(){
+    public void undoLastAction() throws SQLException{
         if(history.isEmpty()){
             System.out.println("Nada que deshacer");
             return;
@@ -64,7 +64,7 @@ public class LibraryManager {
         
         switch (last.getType()){
             case LOAN:
-                processDevolution(last.getUserId(), last.getItemId());
+                processDevolution(last.getItemId(), last.getUserId());
                 break;
             case RETURN:
                 processLoan(last.getUserId(), last.getItemId());
@@ -73,213 +73,91 @@ public class LibraryManager {
         }
     }
     
-    public void addActionRecord(ActionRecord.ActionType type, String itemId, String userId){
+    public void addActionRecord(ActionRecord.ActionType type, Integer itemId, Integer userId){
         history.push(new ActionRecord(type, itemId, userId));
-    }
-    
-    public void guardarAJSONItemUsuario(LibraryManager manager){
-        try {
-            manager.saveBooksToFile();
-            manager.saveUsersToFile();
-        } catch (IOException ex) {
-            System.getLogger(LibraryManager.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-        }
-    }
-    
-    public void saveBooksToFile() throws IOException{
-        StringBuilder jsonBuilder = new StringBuilder();
-        jsonBuilder.append("[");
-        for(LibraryItem item : inventory.values()){
-            jsonBuilder.append(item.toJSON()).append(",\n");
-        }
-        
-        if(!inventory.isEmpty()){
-            jsonBuilder.setLength(jsonBuilder.length()-2);
-        }
-        jsonBuilder.append("]");
-        
-        VerificarOCrearArchivo.buscarOCrear(RUTA_ARCHIVO_BOOKS);
-        try (FileWriter json = new FileWriter(RUTA_ARCHIVO_BOOKS)){
-            json.write(jsonBuilder.toString());
-        } catch (IOException e) {
-            throw new IOException("Error al escribir archivo");
-        }
-    }
-    
-    public void uploadFileToBooks() throws IOException{
-        File booksFile = new File(RUTA_ARCHIVO_BOOKS);
-        String jsontext;
-        try(Reader reader = new FileReader(booksFile)){
-            jsontext = reader.readAllAsString();
-        } catch(IOException e){
-            throw new IOException("Error al leer archivo");
-        }
-        List<LibraryItem> libros = parseItems(jsontext);
-        for (LibraryItem libro : libros) {
-            this.inventory.put(libro.getId(), libro);
-        }
-    }
-    
-    public List<LibraryItem> parseItems(String jsonContent){
-        List<LibraryItem> libros = new ArrayList<>();
-        String content = jsonContent.trim();
-        if(content.startsWith("[")){
-            content = content.substring(1, content.length()-1);
-        }
-        //Divide por objetos (asumiento que teminan en "}"
-        String[] objects = content.split("(?<=\\}),");
-        for(String objStr : objects){
-            String cleanObj = objStr.trim().replace("{", "").replace("}", "");
-            String[] fields = cleanObj.split(",");
-            
-            String id= ""; 
-            String title = "";
-            String author = "";
-            String ano="";
-            boolean isAvailable = true;
-            int isbn = 0;
-            for(String field : fields){
-                String[] keyValue = field.split(":");
-                String key = keyValue[0].replace("\"", "").trim();
-                String value = keyValue[1].replace("\"", "").trim();
-                
-                switch (key) {
-                    case "id": id = value; break;
-                    case "titulo": title = value; break;
-                    case "ano": ano = value; break;
-                    case "author":author = value; break;
-                    case "isAvailable": isAvailable = Boolean.parseBoolean(value); break; 
-                    case "isbn": isbn = Integer.parseInt(value); break;
-                    default: break;
-                }
-            }
-            Book book = new Book(author, isbn, id, title, LocalDate.parse(ano));
-            book.setIsAvailable(isAvailable);
-            libros.add(book);
-        }
-        return libros;
-    }
-    
-    public void uploadFileToUsers() throws IOException{
-        File booksFile = new File(RUTA_ARCHIVO_USERS);
-        String jsontext;
-        try(Reader reader = new FileReader(booksFile)){
-            jsontext = reader.readAllAsString();
-        } catch(IOException e){
-            throw new IOException("Error al leer archivo");
-        }
-        parseUsers(jsontext);
-    }
-    
-    public void parseUsers(String jsonContent){
-        String content = jsonContent.trim();
-        if(content.startsWith("[")){
-            content = content.substring(1, content.length()-1);
-        }
-        //Divide por objetos (asumiento que teminan en "}"
-        String[] objects = content.split("(?<=\\}),");
-        for(String objStr : objects){
-            String cleanObj = objStr.trim().replace("{", "").replace("}", "");
-              String[] fields = cleanObj.split(",(?=[^\\]]*(?:\\[|$))");
-            
-            String userId= "";
-            String nombre = "";
-            List<LibraryItem> borrowedItems = new ArrayList<>();
-            for(String field : fields){
-                String[] keyValue = field.split(":",2);
-                if (keyValue.length < 2) continue;
-                String key = keyValue[0].replace("\"", "").trim();
-                String value = keyValue[1].trim();
-                switch (key) {
-                    case "userId": userId = value.replace("\"", ""); break;
-                    case "nombre": nombre = value.replace("\"", ""); break;
-                    case "borrowedItems": 
-                        if(!value.equals("[]")){
-                            borrowedItems = parseItems(value);
-                        }
-                        break;
-                    default: break;
-                }
-            }
-            this.usuarios.put(userId, new User(userId, nombre, borrowedItems));
-        }
-    }
-    
-    public void saveUsersToFile() throws IOException{
-        StringBuilder jsonBuilder = new StringBuilder();
-        jsonBuilder.append("[");
-        for(User item : usuarios.values()){
-            jsonBuilder.append(item.toJSON()).append(",\n");
-        }
-        
-        if(!usuarios.isEmpty()){
-            jsonBuilder.setLength(jsonBuilder.length()-2);
-        }
-        jsonBuilder.append("]");
-        
-        VerificarOCrearArchivo.buscarOCrear(RUTA_ARCHIVO_USERS);
-        try (FileWriter json = new FileWriter(RUTA_ARCHIVO_USERS)){
-            json.write(jsonBuilder.toString());
-        } catch (IOException e) {
-            throw new IOException("Error al escribir archivo");
-        }
-    }
-    
-    public void addUser(User usuario){
-        usuarios.put(usuario.getUserId(), usuario);
-    }
-    
-    public User findUser(String id) throws UserNotFoundException{
-        User usuario = usuarios.get(id);
-        if(usuario == null){
-            throw new UserNotFoundException("El Usuario con ID: " + id + " no se encuentra registrado.");
-        }
-        return usuario;
     }
     
     public void addItem(LibraryItem item){
         inventory.put(item.getId(), item);
     }
     
-    public LibraryItem findItem(String id) throws ItemNotFoundException{
-        LibraryItem item = inventory.get(id);
-        if(item == null){
-            throw new ItemNotFoundException("El item con ID: " + id + " no existe en la biblioteca.");
+    public void addBook(Book book) throws SQLException{
+        bookDao.save(book);
+    }
+    
+    public void addUser(User user) throws SQLException{
+        userDao.save(user);
+    }
+    
+    public boolean findItem(int id){
+        try{
+            LibraryItem book = bookDao.findById(id);
+            if(book != null){
+                book.displayDetails();
+                return true;
+            }
+            System.out.println("Libro no encontrado");
+        }catch (SQLException ex) {
+            System.getLogger(LibraryManager.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
-        return item;
+        return false;
+    }
+    
+    public boolean findUser(int id){
+        try {
+            User usuario = userDao.findByIdUser(id);
+            if(usuario != null){
+                usuario.displayDetails();
+                return true;
+            }
+            System.err.println("Usuario no encontrado");
+        } catch (SQLException ex) {
+            System.getLogger(LibraryManager.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+        return false;
     }
     
     public void listAllItems(){
         System.out.println("\nTodos los Libros:");
-        for(LibraryItem item : inventory.values()){
+        List<Book> books = new ArrayList<>();
+        try {
+            books = bookDao.findAll();
+        } catch (SQLException ex) {
+            System.getLogger(LibraryManager.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+        for(LibraryItem item : books){
             item.displayDetails();
         }
     }
     
     public void listAllUsers(){
         System.out.println("\nTodos los Usuarios:");
-        for(User usuario : usuarios.values()){
+        List<User> usuarios = new ArrayList<>();
+        try {
+            usuarios = userDao.findAllUsers();
+        } catch (SQLException ex) {
+            System.getLogger(LibraryManager.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+        for(User usuario : usuarios){
             usuario.displayDetails();
         }
     }
     
-    public boolean processLoan(String userId, String itemId){
-        if(!inventory.containsKey(itemId)){
+    public boolean processLoan(int userId, int itemId) throws SQLException{
+        Book libroAPrestar = bookDao.findById(itemId);
+        User usuarioPrestamo = userDao.findByIdUser(userId);
+        if(libroAPrestar == null){
             System.out.println("Libro no existe");
             return false;
         }
-        if(!usuarios.containsKey(userId)){
+        if(usuarioPrestamo == null){
             System.err.println(USUARIO_NO_EXISTE);
             return false;
         }
-                
-        LibraryItem libroAPrestar = inventory.get(itemId);
-        User usuarioPrestamo = usuarios.get(userId);
         
         if(libroAPrestar.isIsAvailable()){
             System.out.println("Prestando libro: " + libroAPrestar.getTitulo() + " a: " + usuarioPrestamo.getNombre());
-            libroAPrestar.checkOut();
-            usuarioPrestamo.addLoan(libroAPrestar); 
+            prestamoDao.registrarPrestamo(userId, itemId);
             return true;
         }else{
             System.out.println("El ítem no está disponible.");
@@ -287,74 +165,38 @@ public class LibraryManager {
         }
     }
     
-    public boolean processDevolution(String userId, String itemId){
-        if(!inventory.containsKey(itemId)){
-            System.out.println("Libro no existe");
-            return false;
+    public boolean processDevolution(int itemId, int userId){
+        try {
+            Book libroADevolver = bookDao.findById(itemId);
+            User usuarioDevolucion = userDao.findByIdUser(userId);
+            if(libroADevolver == null){
+                System.out.println("Libro no existe");
+                return false;
+            }
+            if(usuarioDevolucion == null){
+                System.err.println(USUARIO_NO_EXISTE);
+                return false;
+            }
+            if(!libroADevolver.isIsAvailable()){
+                System.out.println("Devolviendo libro: " + libroADevolver.getTitulo() + " de: " + usuarioDevolucion.getNombre());
+                return prestamoDao.devolverLibro(itemId, userId);
+            }
+        } catch (SQLException ex) {
+            System.getLogger(LibraryManager.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
-        if(!usuarios.containsKey(userId)){
-            System.err.println(USUARIO_NO_EXISTE);
-            return false;
-        }
-                
-        LibraryItem libroADevolver = inventory.get(itemId);
-        User usuarioDevolucion = usuarios.get(userId);
-        
-        if(!libroADevolver.isIsAvailable()){
-            System.out.println("Devolviendo libro: " + libroADevolver.getTitulo() + " de: " + usuarioDevolucion.getNombre());
-            libroADevolver.returnItem();
-            usuarioDevolucion.returnLibraryItemById(itemId);   
-            return true;
-        }else{
-            System.out.println("El ítem no está disponible.");
-            return false;
-        }
+        return false;
     }
     
-    public void showUsersBooks(String userId){
-        if(!usuarios.containsKey(userId)){
-            System.err.println(USUARIO_NO_EXISTE);
-            return;
+    public void showUsersBooks(Integer userId){
+        try {
+            if(userDao.findByIdUser(userId) == null){
+                System.err.println(USUARIO_NO_EXISTE);
+                return;
+            }
+            List<LibraryItem> librosPrestados = prestamoDao.obtenerLibrosPrestados(userId);
+            librosPrestados.forEach(b -> System.out.println(b.getTitulo()));
+        } catch (SQLException ex) {
+            System.getLogger(LibraryManager.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
-        
-        User usuarioAMostrar = usuarios.get(userId);
-        usuarioAMostrar.showBooksBorrowed();
-    }
-    
-    /**
-     * Metodo para buscar entre los items existentes y retorna el consecutivo siguiente.
-     * @return the next consecutive ID for Items
-     */
-    public int consecutivoItemId() {
-        int nextID = 1;
-        if(!inventory.isEmpty()){
-            nextID = inventory.values().stream().mapToInt(i -> {
-                try{
-                    return  Integer.parseInt(i.getId().replaceAll("[^0-9]", ""));
-                } catch(NumberFormatException e){
-                    return 0;
-                }
-            })
-            .max().getAsInt()+1;
-        }
-        return nextID;
-    }
-    
-    /**
-     * @return the next consecutive ID for Users
-     */
-    public int consecutivoUserId() {
-        int nextID = 1;
-        if(!usuarios.isEmpty()){
-            nextID = usuarios.values().stream().mapToInt(i -> {
-                try{
-                    return  Integer.parseInt(i.getUserId().replaceAll("[^0-9]", ""));
-                } catch(NumberFormatException e){
-                    return 0;
-                }
-            })
-            .max().getAsInt()+1;
-        }
-        return nextID;
-    }
+    }    
 }

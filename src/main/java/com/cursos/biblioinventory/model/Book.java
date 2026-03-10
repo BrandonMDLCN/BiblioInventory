@@ -14,13 +14,23 @@ public class Book extends LibraryItem{
     private String author;
     private int isbn;
 
-    public Book(String author, int isbn, String id, String titulo, LocalDate ano) {
-        super(id, titulo, ano);
+   /*
+    * Constructor para ingresar datos al sistema desde la BD
+    */
+    public Book(String author, int isbn, int id, String titulo, LocalDate ano, boolean isAvailable) {
+        super(id, titulo, ano, isAvailable);
         this.author = author;
         this.isbn = isbn;
     }
     
-    
+   /*
+    * Constructor para enviar datos a la BD
+    */
+    public Book(String author, int isbn, String titulo, LocalDate ano) {
+        super(titulo, ano);
+        this.author = author;
+        this.isbn = isbn;
+    }
 
     @Override
     public void displayDetails() {
@@ -30,7 +40,7 @@ public class Book extends LibraryItem{
     @Override
     public String toJSON(){
         return "{" +
-                "\"id\":\""+getId()+"\","+
+                "\"id\":"+getId()+","+
                 "\"titulo\":\""+getTitulo()+"\","+
                 "\"ano\":\""+getAno()+"\","+
                 "\"isAvailable\":"+isIsAvailable()+","+

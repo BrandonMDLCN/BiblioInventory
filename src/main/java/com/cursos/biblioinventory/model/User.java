@@ -12,18 +12,28 @@ import java.util.List;
  * @author brandon.delacruz
  */
 public class User {
-    private String userId;
+    private Integer userId;
     private String nombre;
     private final List<LibraryItem> borrowedItems;
 
-    public User(String userId, String nombre) {
+    public User(Integer userId, String nombre) {
         this.userId = userId;
         this.nombre = nombre;
         this.borrowedItems = new ArrayList<>();
     }
     
-    public User(String userId, String nombre, List<LibraryItem> borrowedItems) {
+    public User(String nombre) {
+        this.nombre = nombre;
+        this.borrowedItems = new ArrayList<>();
+    }
+    
+    public User(Integer userId, String nombre, List<LibraryItem> borrowedItems) {
         this.userId = userId;
+        this.nombre = nombre;
+        this.borrowedItems = borrowedItems;
+    }
+    
+    public User(String nombre, List<LibraryItem> borrowedItems) {
         this.nombre = nombre;
         this.borrowedItems = borrowedItems;
     }
@@ -32,7 +42,7 @@ public class User {
             borrowedItems.add(item);   
     }
     
-    public void returnLibraryItemById(String id){
+    public void returnLibraryItemById(Integer id){
         LibraryItem itemEncontrado = borrowedItems.stream()
                 .filter(i -> i.getId().equals(id))
                 .findFirst()
@@ -47,7 +57,7 @@ public class User {
     
     public String toJSON(){
         return "{"+
-                "\"userId\":\""+getUserId()+"\","+
+                "\"userId\":"+getUserId()+","+
                 "\"nombre\":\""+getNombre()+"\","+
                 "\"borrowedItems\":"+saveBooksToFile()+
                 "}";
@@ -74,11 +84,11 @@ public class User {
         System.out.println("El Usuario no cuenta con libros preestados.");
     }
 
-    public String getUserId() {
+    public Integer getUserId() {
         return userId;
     }
 
-    public void setUserId(String userId) {
+    public void setUserId(Integer userId) {
         this.userId = userId;
     }
 
