@@ -14,7 +14,7 @@ import java.sql.SQLException;
  */
 public class DatabaseConnection {
     //URL de conexion "jdbc:sqlite" es el protocolo seguido del nombre del archivo
-    private static final String URL = "jdbc:sqlite:C:\\Users\\brandon.delacruz\\Downloads\\sql\\library.db";
+    private static final String URL = "jdbc:sqlite:sql\\library.db";
     private static Connection connection = null;
     
     private DatabaseConnection(){}
